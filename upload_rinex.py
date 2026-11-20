@@ -3,7 +3,7 @@
 __author__ = "Juan Giglio"
 __copyright__ = "Copyright 2024, ADELA Project"
 __license__ = "GPL"
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 __maintainer__ = "Juan Giglio"
 __email__ = "juan.giglio@usach.cl"
 __status__ = "Production"
@@ -95,10 +95,23 @@ async def upload_file(session, path, api_url):
                     try:
                         j = await response.json()
                         logger.error("Error archivo %s, %s", path,j['detail'] )
+                        return j['detail']
                     except Exception as e:
                         logger.error(str(e))
+                        return f"Error del servidor (HTTP {response.status})"
     else:
         logger.info("Archivo omitido: %s", path)
+
+
+async def safe_upload(sem, session, path, api_url):
+    """Sube un archivo y retorna (path, error) si falla, o None si no hubo error."""
+    async with sem:
+        try:
+            error = await upload_file(session, path, api_url)
+        except (aiohttp.ClientError, OSError, asyncio.TimeoutError) as e:
+            error = f"Error de conexión: {str(e) or type(e).__name__}"
+            logger.error("%s: %s", error, path)
+        return (path, error) if error else None
 
 
 async def update_password(session,api_url):
@@ -163,11 +176,23 @@ async def main():
 
         init_time=datetime.datetime.now()
         logger.info("Iniciando subida de archivos %s", init_time)
-        tasks = [upload_file(session, path, api_url) for path in p.glob("**/*") if path.is_file()]
-        await asyncio.gather(*tasks)
+        sem = asyncio.Semaphore(4)  # máximo de subidas simultáneas
+        tasks = [safe_upload(sem, session, path, api_url) for path in p.glob("**/*") if path.is_file()]
+        results = await asyncio.gather(*tasks)
         end_time=datetime.datetime.now()
         logger.info("Finalizando subida de archivos %s", end_time)
         logger.info("Tiempo transcurrido %s",end_time-init_time)
+
+        # Informe de fallas
+        failed = [r for r in results if r]
+        if failed:
+            logger.error("RESUMEN: %d archivo(s) no se subieron:", len(failed))
+            for path, error in failed:
+                logger.error("  %s: %s", path, error)
+            if any(error.startswith("Error de conexión") for _, error in failed):
+                logger.error("Los archivos con error de conexión se pueden reintentar ejecutando nuevamente el script.")
+        else:
+            logger.info("RESUMEN: sin errores")
 
 
 
