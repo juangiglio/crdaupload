@@ -73,7 +73,7 @@ Clona el repositorio o descarcárgalo en tu directorio local. Realiza la instala
 ## Modo de uso
 
 ### Carga de archivos
-   Para cargar archivos RINEX desde un directorio se puede utilizar `-d <directorio>`
+   Para cargar archivos RINEX desde un directorio se puede utilizar el argumento `-d <directorio>`
    
    En linux:
    ```bash
@@ -85,7 +85,7 @@ Clona el repositorio o descarcárgalo en tu directorio local. Realiza la instala
    ```
 
    - A continuación ingrese su usuario y contraseña.
-   - Si la autenticación es correcta se comenzará con la subida de archivos.
+   - Si la autenticación es correcta se comenzará con la subida masiva de archivos.
    - Se subirán archivos .Z o .gz.
    - Se presentarán errores si:
       - La nomenclatura de los archivos no sigue el estándar RINEX v2 o V3.
